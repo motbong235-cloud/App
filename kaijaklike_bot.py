@@ -4250,9 +4250,9 @@ def main_kb(uid=None):
 def admin_kb():
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.row(KeyboardButton("📊 ការបញ្ជា SMM",  color="active"),
-           KeyboardButton("⚙️ កំណត់ SMM API", color="progress"))
-    kb.row(KeyboardButton("➕ បន្ថែម SMM",    color="active"),
            KeyboardButton("✍️ Manual SMM",   color="active"))
+    kb.row(KeyboardButton("📝 កែអត្ថបទ Order UI", color="progress"),
+           KeyboardButton("✏️ កែ SMM", color="progress"))
     kb.row(KeyboardButton("🗑️ លុប SMM",   color="danger"),
            KeyboardButton("✏️ កែ SMM",     color="progress"))
     kb.row(KeyboardButton("📦 បន្ថែម Package", color="active"),
@@ -4424,6 +4424,35 @@ def admin_bal_amt_kb(target, kind):
     btns.append([InlineKeyboardButton("✏️ ចំនួនផ្សេង",
         callback_data=f"balamt:{kind}:{target}:custom", color="progress")])
     return InlineKeyboardMarkup(btns)
+
+
+def _tiktok_khmer_category():
+    for slug, s in smm_services.items():
+        cat = (s.get("category") or "")
+        if "tiktok khmer" in cat.lower():
+            return cat
+    return "🇰🇭 TikTok Khmer"
+
+
+def _open_tiktok_services_msg(uid, edit_message=None):
+    cat = _tiktok_khmer_category()
+    lang = get_lang(uid)
+    if lang == "kh":
+        header = "🇰🇭 <b>TikTok Khmer Services!</b>" + chr(10) + "━━━━━━━━━━━━━━━━━━" + chr(10) + "• ធានាបានអ្នកមើលខ្មែរ 100%" + chr(10) + "• អាចបានលើសទៅតាមវីដេអូ" + chr(10) + chr(10) + "ជ្រើសសេវាកម្ម:"
+    else:
+        header = "🇰🇭 <b>TikTok Khmer Services!</b>" + chr(10) + "━━━━━━━━━━━━━━━━━━" + chr(10) + "• 100% Khmer viewers" + chr(10) + "• May exceed by video" + chr(10) + chr(10) + "Choose a service:"
+    try:
+        header = _ui(lang, "tiktok_khmer_header")
+    except Exception:
+        pass
+    kb = smm_svc_kb(cat)
+    if edit_message is not None:
+        try:
+            bot.edit_message_text(header, chat_id=uid, message_id=edit_message, parse_mode="HTML", reply_markup=kb)
+            return
+        except Exception:
+            pass
+    bot.send_message(uid, header, parse_mode="HTML", reply_markup=kb)
 
 def smm_cat_kb():
     PLATFORM_ICONS = {
@@ -5657,13 +5686,7 @@ def cb_back(call):
         except Exception as _e: logger.debug(f"[silent] {_e}")
         _show_welcome(uid)
     elif dest == "smmcats":
-        try:
-            bot.edit_message_text("📊 <b>SMM Services</b>\n━━━━━━━━━━━━━━━━━━\nជ្រើស Platform:",
-                                  chat_id=uid, message_id=call.message.message_id,
-                                  parse_mode="HTML", reply_markup=smm_cat_kb())
-        except:
-            bot.send_message(uid, _ui(get_lang(uid), "smm_title") + (chr(10)*2) + _ui(get_lang(uid), "choose_platform"),
-                             parse_mode="HTML", reply_markup=smm_cat_kb())
+        _open_tiktok_services_msg(uid, edit_message=call.message.message_id)
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("smmcat:"))
 def cb_smmcat(call):
@@ -5786,6 +5809,11 @@ def cb_smmqty(call):
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("smmapi:"))
 def cb_smmapi(call):
+    try:
+        bot.answer_callback_query(call.id, "SMM API disabled", show_alert=True)
+    except Exception:
+        pass
+    return
     uid = call.message.chat.id
     if uid != ADMIN_ID: return
     action = call.data[7:]
@@ -8566,6 +8594,8 @@ def handle_msg(message):
             bot.send_message(uid, "\n".join(lines)[:4000], parse_mode="HTML", reply_markup=admin_kb()); return
 
         if text == "⚙️ កំណត់ SMM API":
+            bot.send_message(uid, "🚫 SMM API បិទហើយ — ប្រើ Package TikTok Khmer (Manual)", reply_markup=admin_kb()); return
+        if False and text == "__SMM_API_DISABLED__":
             cur_url = smm_api.get("url","❌ មិនទាន់ set")
             cur_key = smm_api.get("key","❌ មិនទាន់ set")
             masked = cur_key[:6] + "****" + cur_key[-4:] if len(cur_key) > 10 else cur_key
@@ -9673,14 +9703,13 @@ def handle_msg(message):
             parse_mode="HTML", reply_markup=main_kb(uid)); return
 
     # ── Main menu buttons ──
-    if text in ("📊 SMM Services", "🛒 បញ្ជាទិញសេវា", "🛒 Order Service"):
+    if text in ("📊 SMM Services", "🛒 បញ្ជាទិញសេវា", "🛒 Order Service", "📋 SMM Services"):
         if not smm_services:
             bot.send_message(uid,
-                "❌ គ្មាន SMM Service ទេ\n(Admin ចូល ⚙️ កំណត់ SMM API ដើម្បី import)",
+                "❌ មិនទាន់មាន Package ទេ\n(Admin បន្ថែម Package TikTok Khmer)",
                 reply_markup=main_kb(uid)); return
-        bot.send_message(uid,
-            "📊 <b>SMM Services</b>\n━━━━━━━━━━━━━━━━━━\nជ្រើស Platform:",
-            parse_mode="HTML", reply_markup=smm_cat_kb()); return
+        _open_tiktok_services_msg(uid)
+        return
 
     if text in ("💰 ដាក់ប្រាក់", "💰 Top Up", "💸 បញ្ចូលលុយ", "💸 Top Up"):
         b = bal(uid)

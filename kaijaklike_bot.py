@@ -164,14 +164,6 @@ def _strip_leading_emoji_text(text, ch):
         return text[len(ch):].lstrip()
     return text
 
-
-def _safe_btn_text(text, fallback="•"):
-    """Telegram rejects empty inline/reply keyboard button text (HTTP 400)."""
-    if text is None:
-        return fallback
-    s = str(text).strip()
-    return s if s else fallback
-
 class InlineKeyboardButton(_IKB_orig):
     def __init__(self, *args, color: str = None, emoji_id: str = None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -204,17 +196,16 @@ class InlineKeyboardButton(_IKB_orig):
             d["style"] = style
         eid = self._resolve_emoji_id()
         if eid:
-            d["icon_custom_emoji_id"] = eid
             if "text" in d:
-                original = d.get("text") or ""
-                stripped = _strip_leading_emoji_text(original, self._emoji_char)
-                # Telegram 400: inline keyboard button text must be non-empty
-                if not stripped or not str(stripped).strip():
-                    stripped = original.strip() if original and str(original).strip() else "•"
-                d["text"] = stripped
-        # final guard
-        if "text" in d and (d["text"] is None or not str(d["text"]).strip()):
-            d["text"] = self._emoji_char or "•"
+                stripped = _strip_leading_emoji_text(d["text"], self._emoji_char)
+                # FIX: ប៊ូតុងដែល text មានតែ emoji មួយ (ឧ. emoji picker grid) បើកាត់ចេញ
+                # នឹងទទេ → Telegram 400 "inline keyboard button text must be non-empty".
+                # ករណីនោះទុក text ដើម ហើយមិនដាក់ icon_custom_emoji_id (កុំឲ្យស្ទួន)។
+                if stripped and stripped.strip():
+                    d["icon_custom_emoji_id"] = eid
+                    d["text"] = stripped
+            else:
+                d["icon_custom_emoji_id"] = eid
         return d
 
 # ⚠️ កំណត់ត្រា (កែនៅ 2026-08-06 លើកទី ២): ការយល់ដឹងមុននេះខុស — Telegram
@@ -268,16 +259,15 @@ class KeyboardButton(_KB_orig):
             d["style"] = style
         eid = self._resolve_emoji_id()
         if eid and "text" in d:
-            original_text = d["text"] or ""
-            d["icon_custom_emoji_id"] = eid
+            original_text = d["text"]
             stripped = _strip_leading_emoji_text(original_text, self._emoji_char)
-            if not stripped or not str(stripped).strip():
-                stripped = original_text.strip() if original_text and str(original_text).strip() else "•"
-            if stripped != original_text and stripped.strip():
+            if not (stripped and stripped.strip()):
+                # FIX: text មានតែ emoji — កុំកាត់ចេញ (ជៀស text ទទេ)
+                return d
+            d["icon_custom_emoji_id"] = eid
+            if stripped != original_text:
                 _STRIPPED_TEXT_MAP[stripped] = original_text
-            d["text"] = stripped
-        if "text" in d and (d["text"] is None or not str(d["text"]).strip()):
-            d["text"] = self._emoji_char or "•"
+                d["text"] = stripped
         return d
 
 # ─────────────────────────────────────────────────────────────────────────

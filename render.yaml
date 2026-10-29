@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: apsara-smm-bot
+    runtime: python
+    plan: starter
+    region: singapore
+    buildCommand: pip install -r requirements.txt
+    startCommand: python kaijaklike_bot.py
+    healthCheckPath: /health
+    disk:
+      name: apsara-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+      - key: BOT_TOKEN
+        sync: false
+      - key: ADMIN_ID
+        sync: false
+      - key: DATA_DIR
+        value: /var/data
+      - key: PAY_METHOD
+        value: aba
+      - key: ABA_API_KEY
+        sync: false
+      - key: ABA_MERCHANT_ID
+        sync: false
+      - key: CONTROL_KEY
+        sync: false
+      - key: QR_EXPIRE_SEC
+        value: "3600"
